@@ -1,0 +1,41 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US
+  keyboard:
+    layout: us
+  ssh:
+    install-server: true
+    allow-pw: true
+    disable_root: true
+    ssh_quiet_keygen: true
+    allow_public_ssh_keys: true
+  network:
+    network:
+      version: 2
+      ethernets:
+        any:
+          match:
+            name: en*
+          dhcp4: true
+          dhcp6: false
+  packages:
+    - qemu-guest-agent
+    - sudo
+    - openssh-server
+  storage:
+    layout:
+      name: direct
+    swap:
+      size: 0
+  user-data:
+    package_upgrade: false
+    timezone: Asia/Jerusalem
+    users:
+      - name: niyov
+        groups: [adm, sudo]
+        lock-passwd: false
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        shell: /bin/bash
+        ssh_authorized_keys:
+          - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC5MuXB1zrfoHLom8PV5zNlWNgIvroeJXsmHKon593wOZqR+InflzjZRE1MB0UeZa7GxtCcRGYffYflgHxSCKlUgHMiTRMJEr9pjdcKHzfIl3MGpa92mkxutBjVo/OpNsRZVxiUBqfd8SSBn7uP/nyls5M2/i03V0XaiLgV5y8MegYLojDvWXVFB6YPslv5RMLwcnjyLE7AMZ0vUcXwcS3YbsrdY/xfypY1joBvZC9G8bwx2Pc4uCKKJbXa/JNjY9VXVeYhPQjDPpIB6zpZCqFZubKDVNrkQ3Luat342Qhbr7wMpqUpZThilXjW8ZCfcvCSKLst1vwVGLno1nDXVlZvByNl644g5TYPu9CEDb/8Nr/2CGltS31UzkezOKsBD0KNalugS2z3WS3dleewJuKkQZyYBJxEA/lKGq2KPv5vMP7QislDIwIbE1XcOabsgA2krUv6em34DQbxBYa0k9P/HUn5k5cn0r48mxETUIg7X/ttlWl94C+9VqLleN+G+9VJLElBFN/UrB+R0YlYLuzd7J6aWom2RfOILg4FWDuQCZPdhyt9aF8sq5hSoX845jsWANwvYWgX6bIduZr/TC6gipDKSFpz/on9TllvvPzo5ILSkILFGBMgTF3EJlDrfyb0EJ7gDX9gY02IlnH0GwRMpxbWE9EzUdOwbAJ8xI96Cw== root@pve
