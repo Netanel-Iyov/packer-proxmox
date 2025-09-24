@@ -27,7 +27,7 @@ locals {
 }
 
 # Resource Definiation for the VM Template
-source "proxmox-iso" "ubuntu-2404-k8s-node" {
+source "proxmox-iso" "ubuntu-2404-multi-purpose" {
     # Proxmox Connection Settings
     proxmox_url              = var.proxmox_api_url
     username                 = var.proxmox_api_token_id
@@ -36,9 +36,9 @@ source "proxmox-iso" "ubuntu-2404-k8s-node" {
 
     # VM General Settings
     node                 = "pve"
-    vm_id                = "211"
-    vm_name              = "ubuntu-2404-k8s-node-template"
-    template_description = "Ubuntu Server 24.04 Server K8S Node Template"
+    vm_id                = "212"
+    vm_name              = "ubuntu-2404-multi-purpose-template"
+    template_description = "Ubuntu Server 24.04 For Multi-Purpose (Managing K8S Nodes and more)"
 
     # VM ISO Settings
     boot_iso {
@@ -56,7 +56,7 @@ source "proxmox-iso" "ubuntu-2404-k8s-node" {
     # VM Hard Disk Settings
     scsi_controller = "virtio-scsi-single"
     disks {
-        disk_size         = "16G"
+        disk_size         = "25G"
         format            = "raw"
         storage_pool      = local.disk_storage
         type              = "scsi"
@@ -97,8 +97,8 @@ source "proxmox-iso" "ubuntu-2404-k8s-node" {
 
 # Build Definition to create the VM Template
 build {
-    name = "ubuntu-2404-k8s-node"
-    sources = ["source.proxmox-iso.ubuntu-2404-k8s-node"]
+    name    = "ubuntu-2404-multi-purpose"
+    sources = ["source.proxmox-iso.ubuntu-2404-multi-purpose"]
 
     # Provisioning the VM Template for Cloud-Init Integration in Proxmox #1
     provisioner "shell" {
@@ -126,52 +126,15 @@ build {
         inline = [ "sudo cp /tmp/ubuntu-2404.cfg /etc/cloud/cloud.cfg.d/ubuntu-2404.cfg" ]
     }
 
-    # --- Kubernetes Prerequisites ---
-    # 1. Base updates and required packages
+    # Install Ansible
     provisioner "shell" {
         inline = [
             "sudo apt-get update -y",
-            "sudo apt-get upgrade -y",
-            "sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release software-properties-common"
+            "sudo apt-get install -y ansible"
         ]
     }
 
-    # 2. Disable swap (Kubernetes requirement)
-    provisioner "shell" {
-        inline = [
-            "sudo swapoff -a",
-            "sudo sed -i '/ swap / s/^/#/' /etc/fstab"
-        ]
-    }
-
-    # 3. Kernel modules and sysctl for networking
-    provisioner "shell" {
-        inline = [
-            "sudo modprobe overlay",
-            "sudo modprobe br_netfilter",
-            "echo 'overlay' | sudo tee /etc/modules-load.d/containerd.conf",
-            "echo 'br_netfilter' | sudo tee -a /etc/modules-load.d/containerd.conf",
-            "echo 'net.bridge.bridge-nf-call-iptables=1' | sudo tee /etc/sysctl.d/kubernetes.conf",
-            "echo 'net.bridge.bridge-nf-call-ip6tables=1' | sudo tee -a /etc/sysctl.d/kubernetes.conf",
-            "echo 'net.ipv4.ip_forward=1' | sudo tee -a /etc/sysctl.d/kubernetes.conf",
-            "sudo sysctl --system"
-        ]
-    }
-
-    # 4. Install containerd (container runtime)
-    provisioner "shell" {
-        inline = [
-            "sudo mkdir -p /etc/containerd",
-            "curl -sSL https://github.com/containerd/containerd/releases/download/v1.7.18/containerd-1.7.18-linux-amd64.tar.gz | sudo tar -C /usr/local -xzf -",
-            "curl -sSL https://raw.githubusercontent.com/containerd/containerd/main/containerd.service | sudo tee /etc/systemd/system/containerd.service",
-            "sudo systemctl daemon-reexec",
-            "sudo systemctl enable --now containerd",
-            "sudo containerd config default | sudo tee /etc/containerd/config.toml",
-            "sudo systemctl restart containerd"
-        ]
-    }
-
-    # 5. Install Kubernetes packages (kubeadm, kubelet, kubectl)
+    # Install Kubernetes (kubectl, kubeadm, kubelet)
     provisioner "shell" {
         inline = [
             "sudo mkdir -p /etc/apt/keyrings",
@@ -183,7 +146,25 @@ build {
         ]
     }
 
-    # 6. Final cleanup to shrink image
+    # Install Docker CE
+    provisioner "shell" {
+    inline = [
+        "sudo apt-get update",
+        "sudo apt-get install -y ca-certificates curl gnupg lsb-release apt-transport-https",
+        "sudo install -m 0755 -d /etc/apt/keyrings",
+        "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg",
+        "sudo chmod a+r /etc/apt/keyrings/docker.gpg",
+        "echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu noble stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null",
+        "sudo apt-get update",
+        "sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+
+        # Enable and start Docker service
+        "sudo systemctl enable docker",
+        "sudo systemctl start docker"
+    ]
+    }
+
+    # Final cleanup
     provisioner "shell" {
         inline = [
             "sudo apt-get autoremove -y",
